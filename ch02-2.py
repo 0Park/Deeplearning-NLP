@@ -46,4 +46,3 @@ print([l.stem(w) for w in words])
 # %% 6
 from nltk.corpus import stopwords
 stopwords.words('english')[:10]
-print('hello')
