@@ -148,8 +148,9 @@ for word, i in q_word_index.items():
         continue
     q_Embedding_matrix[i]=embedding_vector
 #%%
+
 from tensorflow.keras.layers import Embedding,LSTM,Bidirectional,MaxPool1D,Dropout,concatenate
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential,Model
 
 embedding_dim=200
 max_len=100
@@ -168,9 +169,13 @@ a=Embedding(a_vocb_size,embedding_dim,weights=[a_Embedding_matrix],input_length=
 A_model.add(a)
 A_model.add(Bidirectional(LSTM(hidden_size,return_sequences=True)))
 A_model.add(MaxPool1D(max_len))
-Q_model.add(Dropout(0.2))
+A_model.add(Dropout(0.2))
 A_model.summary()
 
-QA_model=Sequential()
-QA_model.add(concatenate([Q_model,A_model]))
+merged=concatenate([Q_model.output,A_model.output])
+QA_model = Model([Q_model.input,A_model.input], merged)
 QA_model.summary()
+
+from tensorflow.keras.utils import plot_model # conda install pydot
+dot_img_file = './model.png'
+plot_model(QA_model, to_file=dot_img_file, show_shapes=True)
