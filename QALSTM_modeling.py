@@ -129,8 +129,6 @@ a_sequences=pad_sequences(a_sequences,maxlen=max_len)
 #%%
 # make Embeeding matrix using Word2Vec
 import numpy as np
-a_vocb_size=100
-q_vocab_size=100
 a_Embedding_matrix=np.zeros((a_vocb_size,200))
 q_Embedding_matrix=np.zeros((q_vocab_size,200))
 
