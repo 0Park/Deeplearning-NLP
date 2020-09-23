@@ -4,10 +4,16 @@ def sigmoid(x):
     return 1/(1+np.exp(-x))
 
 def loss_function(y_target,y,batch_size):
-    loss=abs(-np.sum(((y_target*np.log(y+0.1))+(1-y_target*np.log(1-y+0.1))),axis=1))
+    loss=-np.sum(((y_target*np.log(y))+((1-y_target)*np.log(1-y))),axis=1)
     loss/=batch_size
     
     return loss
+
+def softmax(x):
+    """ applies softmax to an input x"""
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum()
+
 
 class RNN_layer:
     
@@ -17,12 +23,12 @@ class RNN_layer:
         self.input_dim=input_dim
         self.batch_size=batch_size
         
-        self.W_h=np.random.uniform(-np.sqrt(1./hidden_size),np.sqrt(1./hidden_size),(hidden_size,hidden_size))
-        self.W_x=np.random.uniform(-np.sqrt(1./input_dim),np.sqrt(1./input_dim),(hidden_size,input_dim))
-        self.b=np.random.random((hidden_size,1))
-        self.h_times=np.random.random((time_steps,hidden_size,batch_size))
-        self.W_y=np.random.uniform(-np.sqrt(1./hidden_size),np.sqrt(1./hidden_size),(1,hidden_size))
-        self.b_y=np.random.random((1,1))
+        self.W_h=np.random.uniform(-np.sqrt(6./hidden_size),np.sqrt(6./hidden_size),(hidden_size,hidden_size))
+        self.W_x=np.random.uniform(-np.sqrt(6./(input_dim+hidden_size)),np.sqrt(6./(input_dim+hidden_size)),(hidden_size,input_dim))
+        self.b=np.zeros((hidden_size,1))
+        self.h_times=np.zeros((time_steps,hidden_size,batch_size))
+        self.W_y=np.random.uniform(-np.sqrt(6./hidden_size),np.sqrt(6./hidden_size),(1,hidden_size))
+        self.b_y=np.zeros((1,1))
     
     def forward_RNN(self,x_data):
         # batch_size,time_stpes,input_dim
@@ -86,8 +92,8 @@ class RNN_layer:
         
 #%%
 
-hidden_size=7
-time_steps=6
+hidden_size=4
+time_steps=10
 input_dim=12
 data_size=10000
 
@@ -99,7 +105,7 @@ import matplotlib.pyplot as plt
 
 r=RNN_layer(hidden_size, time_steps, input_dim,data_size)
 
-epochs=30
+epochs=100
 loss=np.zeros((epochs,1))
 for i in range(epochs):   
     y=r.forward_RNN(x_data)
@@ -107,12 +113,19 @@ for i in range(epochs):
     print(i)
     r.update_model(0.0001, y_train, y, x_data)  # learning rate 조절
 
-plt.plot(range(1,31),loss)
+plt.plot(range(1,epochs+1),loss)
+plt.xlabel('epoch')
+plt.ylabel('Loss')
 plt.show()
 #%%
-a=[[[1,2,3]],[[7,8,9]]]
-a=np.array(a)
-print(a.shape)
-print(a.T.shape)   
 
-    
+for i,result in enumerate(y.T):
+    if result>=0.1:
+        y[0][i]=1
+    else:
+        y[0][i]=0
+predict=(1-(np.sum(abs(y-y_train),axis=1)/data_size))*100
+
+print(predict)
+#%%
+print(y[0][1])
