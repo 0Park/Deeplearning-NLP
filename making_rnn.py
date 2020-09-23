@@ -4,15 +4,10 @@ def sigmoid(x):
     return 1/(1+np.exp(-x))
 
 def loss_function(y_target,y,batch_size):
-    loss=-np.sum(((y_target*np.log(y))+(1-y_target*np.log(1-y))),axis=1)
+    loss=-np.sum(((y_target*np.log(y))+((1-y_target)*np.log(1-y))),axis=1)
     loss/=batch_size
     
     return loss
-
-def softmax(x):
-    """ applies softmax to an input x"""
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum()
 
 class RNN_layer:
     
@@ -103,15 +98,14 @@ y_train=np.random.randint(0,2,size=(1,data_size))
 import matplotlib.pyplot as plt
 
 r=RNN_layer(hidden_size, time_steps, input_dim,data_size)
-
-epochs=100
+l_rate=0.0001
+epochs=30
 loss=np.zeros((epochs,1))
 for i in range(epochs):   
     y=r.forward_RNN(x_data)
-    y_softmax = softmax(y)
-    loss[i]=loss_function(y_train, y_softmax, data_size)
+    loss[i]=loss_function(y_train, y, data_size)
     print(i)
-    r.update_model(0.0001, y_train, y, x_data)  # learning rate 조절
+    r.update_model(l_rate, y_train, y, x_data)  # learning rate 조절
 
 plt.plot(range(1,epochs+1),loss)
 plt.show()
@@ -121,4 +115,5 @@ a=np.array(a)
 print(a.shape)
 print(a.T.shape)   
 
-    
+
+
