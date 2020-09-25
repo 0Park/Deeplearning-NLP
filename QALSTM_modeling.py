@@ -125,7 +125,6 @@ plt.show()
 #%%
 max_len=100
 a_sequences=pad_sequences(a_sequences,maxlen=max_len)
-
 #%%
 # make Embeeding matrix using Word2Vec
 import numpy as np
@@ -148,8 +147,9 @@ for word, i in q_word_index.items():
         continue
     q_Embedding_matrix[i]=embedding_vector
 #%%
-from tensorflow.keras.layers import Embedding,LSTM,Bidirectional,MaxPool1D,Dropout,concatenate
+from tensorflow.keras.layers import Embedding,LSTM,Bidirectional,MaxPool1D,Dropout,concatenate,Add,Input
 from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Model
 
 embedding_dim=200
 max_len=100
@@ -163,14 +163,69 @@ Q_model.add(MaxPool1D(max_len))
 Q_model.add(Dropout(0.2))
 Q_model.summary()
 
-A_model=Sequential()
-a=Embedding(a_vocb_size,embedding_dim,weights=[a_Embedding_matrix],input_length=max_len,trainable=True,mask_zero=True)
-A_model.add(a)
-A_model.add(Bidirectional(LSTM(hidden_size,return_sequences=True)))
-A_model.add(MaxPool1D(max_len))
-Q_model.add(Dropout(0.2))
-A_model.summary()
 
-QA_model=Sequential()
-QA_model.add(concatenate([Q_model,A_model]))
+Ap_model=Sequential()
+a=Embedding(a_vocb_size,embedding_dim,weights=[a_Embedding_matrix],input_length=max_len,trainable=True,mask_zero=True)
+Ap_model.add(a)
+Ap_model.add(Bidirectional(LSTM(hidden_size,return_sequences=True)))
+Ap_model.add(MaxPool1D(max_len))
+Ap_model.add(Dropout(0.2))
+Ap_model.summary()
+
+An_model=Sequential()
+a=Embedding(a_vocb_size,embedding_dim,weights=[a_Embedding_matrix],input_length=max_len,trainable=True,mask_zero=True)
+An_model.add(a)
+An_model.add(Bidirectional(LSTM(hidden_size,return_sequences=True)))
+An_model.add(MaxPool1D(max_len))
+An_model.add(Dropout(0.2))
+An_model.summary()
+
+merged=concatenate([Q_model.output,Ap_model.output,An_model.output])
+output1=Q_model.output
+output2=Ap_model.output
+output3=An_model.output
+QA_model = Model([Q_model.input,Ap_model.input,An_model.input],[output1,output2,output3])
 QA_model.summary()
+#%%
+from tensorflow.keras.utils import plot_model
+dot_img_file = './model.png'
+plot_model(QA_model, to_file=dot_img_file, show_shapes=True)
+#%%
+import numpy as np
+import tensorflow as tf
+
+from tensorflow.keras.losses import cosine_similarity
+def cal_loss(y_pred,y_true):
+    poscosine=cosine_similarity(y_pred[0],y_pred[1],axis=1)
+    negcosine=cosine_similarity(y_pred[0],y_pred[2],axis=1)
+    zero = tf.fill(tf.shape(poscosine), 0.0)
+    margin = tf.fill(tf.shape(poscosine), 0.2)
+    losses = tf.maximum(zero, tf.subtract(margin, tf.subtract(poscosine, negcosine)))
+    loss = tf.reduce_sum(losses)
+    
+    return loss
+def cal_acc(y_pred,y_true):
+    poscosine=cosine_similarity(y_pred[0],y_pred[1],axis=1)
+    negcosine=cosine_similarity(y_pred[0],y_pred[2],axis=1)
+    zero = tf.fill(tf.shape(poscosine), 0.0)
+    margin = tf.fill(tf.shape(poscosine), 0.2)
+    losses = tf.maximum(zero, tf.subtract(margin, tf.subtract(poscosine, negcosine)))
+    correct = tf.equal(zero, losses)
+    acc = tf.reduce_mean(tf.cast(correct, "float"), name="acc")
+    
+    return acc
+#%%
+from tensorflow.keras.optimizers import Adam
+Margin=0.2
+learning_rate=0.001
+#%%
+an_sequences=np.array(a_sequences)
+np.random.shuffle(an_sequences)
+
+#%%
+QA_model.compile(optimizer='adam',loss=cal_loss,metrics=[cal_acc])
+QA_model.fit([q_sequences,a_sequences,an_sequences],a_sequences,batch_size=32,verbose=1,epochs=10)
+#%%
+QA_model.summary()
+#%%
+A_model=Mo#%%
