@@ -3,8 +3,11 @@
 import json
 with open('C:/Users/Young Hun Park/Downloads/KorQuAD_v1.0_train.json') as train_file:
     train_data=json.load(train_file)
+with open('C:/Users/Young Hun Park/Downloads/KorQuAD_v1.0_train.json') as dev_file:
+    dev_data=json.load(dev_file)
 #%%
 train_data=train_data['data']
+dev_data=dev_data['data']
 #%%
 # make data into DataFrame
 import pandas as pd
@@ -33,6 +36,7 @@ def json_to_df(data):
     return df
 #%%
 data_df=json_to_df(train_data)
+dev_df=json_to_df(dev_data)
 #%%
 # extract the answertext from the paragraph
 from nltk.tokenize import sent_tokenize
@@ -51,6 +55,7 @@ def get_answer_context(df):
             else:
                 answer+=sentence
 data_df['entire_answer_text']=data_df.apply(lambda row: get_answer_context(row),axis=1)
+dev_df['entire_answer_text']=dev_df.apply(lambda row: get_answer_context(row),axis=1)
 #%%
 # 형태소 분석 and 조사,어미,punctuation 삭제
 from konlpy.tag import Okt
@@ -68,6 +73,16 @@ def cleaningText(text):
     
     return p_sentence
 #%%
+dev_question_text=dev_df['question']
+dev_answer_text=dev_df['entire_answer_text']
+dev_question_text=cleaningText(dev_question_text)
+dev_answer_text=cleaningText(dev_answer_text)
+
+dev_QA_df=pd.DataFrame(columns=['question','answer'])
+dev_QA_df['question']=dev_question_text
+dev_QA_df['answer']=dev_answer_text
+dev_QA_df.to_csv('C:/Users/Young Hun Park/Desktop/python beginner/NLP/dev_QA_df.csv')
+#%%
 # cleansing data and save into csv
 question_text=data_df['question']
 answer_text=data_df['entire_answer_text']
@@ -78,8 +93,10 @@ answer_text=cleaningText(answer_text)
 QA_df=pd.DataFrame(columns=['question','answer'])
 QA_df['question']=question_text
 QA_df['answer']=answer_text
+
 QA_df.to_csv('C:/Users/Young Hun Park/Desktop/python beginner/NLP/QA_df.csv')
 #%%
+# start here
 import pandas as pd
 QA_df=pd.read_csv('C:/Users/Young Hun Park/Desktop/python beginner/NLP/QA_df.csv')
 
@@ -89,143 +106,99 @@ model=gensim.models.Word2Vec.load('C:/Users/Young Hun Park/Desktop/python beginn
 
 #%%
 # integer Encoding(question)
-from tensorflow.keras.preprocessing.text import Tokenizer
-tokenizer=Tokenizer()
-tokenizer.fit_on_texts(QA_df['question'])
-q_sequences=tokenizer.texts_to_sequences(QA_df['question'])
-q_word_index=tokenizer.word_index
-q_vocab_size=len(q_word_index)+1
+question=QA_df['question']
+answer=QA_df['answer']
+text=pd.concat([question,answer],axis=0)
+#%%
 
-#%%
-import matplotlib.pyplot as plt
-print('문장의 최대 길이 :',max(len(l) for l in q_sequences))
-print('문장의 평균 길이 :',sum(map(len, q_sequences))/len(q_sequences))
-plt.hist([len(s) for s in q_sequences], bins=50)
-plt.xlabel('length of samples')
-plt.ylabel('number of samples')
-plt.show()
-#%%
+from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 max_len=100
-q_sequences=pad_sequences(q_sequences,maxlen=max_len)
-#%%
-#integer Encoding(answer)
-tokenizer=Tokenizer()
-tokenizer.fit_on_texts(QA_df['answer'])
-a_sequences=tokenizer.texts_to_sequences(QA_df['answer'])
-a_word_index=tokenizer.word_index
-a_vocb_size=len(a_word_index)+1
 
-print('the length of the longest sentence :',max(len(l) for l in a_sequences))
-print('the mean length of the sentences',sum(map(len,a_sequences))/len(a_sequences))
-plt.hist([len(s) for s in a_sequences],bins=50)
-plt.xlabel('length of samples')
-plt.ylabel('number of samples')
-plt.show()
-#%%
-max_len=100
+tokenizer=Tokenizer()
+tokenizer.fit_on_texts(text)
+
+q_sequences=tokenizer.texts_to_sequences(QA_df['question'])
+a_sequences=tokenizer.texts_to_sequences(QA_df['answer'])
+
+dev_q_sequences=tokenizer.texts_to_sequences(dev_QA_df['question'])
+dev_a_sequences=tokenizer.texts_to_sequences(dev_QA_df['question'])
+
+q_sequences=pad_sequences(q_sequences,maxlen=max_len)
 a_sequences=pad_sequences(a_sequences,maxlen=max_len)
+
+dev_q_sequences=pad_sequences(dev_q_sequences,maxlen=max_len)
+dev_a_sequences=pad_sequences(dev_a_sequences,maxlen=max_len)
+
+word_index=tokenizer.word_index
+vocab_size=len(word_index)+1
+
 #%%
 # make Embeeding matrix using Word2Vec
 import numpy as np
-a_Embedding_matrix=np.zeros((a_vocb_size,200))
-q_Embedding_matrix=np.zeros((q_vocab_size,200))
+Embedding_matrix=np.zeros((vocab_size,200))
 
-for word, i in a_word_index.items():
+for word, i in word_index.items():
     word=word.replace("'","")
     try:
         embedding_vector=model[word]
     except KeyError:
         continue
-    a_Embedding_matrix[i]=embedding_vector
-#%%
-for word, i in q_word_index.items():
-    word=word.replace("'","")
-    try:
-        embedding_vector=model[word]
-    except KeyError:
-        continue
-    q_Embedding_matrix[i]=embedding_vector
-#%%
-from tensorflow.keras.layers import Embedding,LSTM,Bidirectional,MaxPool1D,Dropout,concatenate,Add,Input
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.models import Model
-
-embedding_dim=200
-max_len=100
-hidden_size=50
-
-Q_model=Sequential()
-q=Embedding(q_vocab_size,embedding_dim,weights=[q_Embedding_matrix],input_length=max_len,trainable=True,mask_zero=True)
-Q_model.add(q)
-Q_model.add(Bidirectional(LSTM(hidden_size,return_sequences=True)))
-Q_model.add(MaxPool1D(max_len))
-Q_model.add(Dropout(0.2))
-Q_model.summary()
-
-
-Ap_model=Sequential()
-a=Embedding(a_vocb_size,embedding_dim,weights=[a_Embedding_matrix],input_length=max_len,trainable=True,mask_zero=True)
-Ap_model.add(a)
-Ap_model.add(Bidirectional(LSTM(hidden_size,return_sequences=True)))
-Ap_model.add(MaxPool1D(max_len))
-Ap_model.add(Dropout(0.2))
-Ap_model.summary()
-
-An_model=Sequential()
-a=Embedding(a_vocb_size,embedding_dim,weights=[a_Embedding_matrix],input_length=max_len,trainable=True,mask_zero=True)
-An_model.add(a)
-An_model.add(Bidirectional(LSTM(hidden_size,return_sequences=True)))
-An_model.add(MaxPool1D(max_len))
-An_model.add(Dropout(0.2))
-An_model.summary()
-
-merged=concatenate([Q_model.output,Ap_model.output,An_model.output])
-output1=Q_model.output
-output2=Ap_model.output
-output3=An_model.output
-QA_model = Model([Q_model.input,Ap_model.input,An_model.input],[output1,output2,output3])
-QA_model.summary()
-#%%
-from tensorflow.keras.utils import plot_model
-dot_img_file = './model.png'
-plot_model(QA_model, to_file=dot_img_file, show_shapes=True)
-#%%
-import numpy as np
-import tensorflow as tf
-
-from tensorflow.keras.losses import cosine_similarity
-def cal_loss(y_pred,y_true):
-    poscosine=cosine_similarity(y_pred[0],y_pred[1],axis=1)
-    negcosine=cosine_similarity(y_pred[0],y_pred[2],axis=1)
-    zero = tf.fill(tf.shape(poscosine), 0.0)
-    margin = tf.fill(tf.shape(poscosine), 0.2)
-    losses = tf.maximum(zero, tf.subtract(margin, tf.subtract(poscosine, negcosine)))
-    loss = tf.reduce_sum(losses)
-    
-    return loss
-def cal_acc(y_pred,y_true):
-    poscosine=cosine_similarity(y_pred[0],y_pred[1],axis=1)
-    negcosine=cosine_similarity(y_pred[0],y_pred[2],axis=1)
-    zero = tf.fill(tf.shape(poscosine), 0.0)
-    margin = tf.fill(tf.shape(poscosine), 0.2)
-    losses = tf.maximum(zero, tf.subtract(margin, tf.subtract(poscosine, negcosine)))
-    correct = tf.equal(zero, losses)
-    acc = tf.reduce_mean(tf.cast(correct, "float"), name="acc")
-    
-    return acc
-#%%
-from tensorflow.keras.optimizers import Adam
-Margin=0.2
-learning_rate=0.001
+    Embedding_matrix[i]=embedding_vector
 #%%
 an_sequences=np.array(a_sequences)
 np.random.shuffle(an_sequences)
 
+dev_an_sequences=np.array(dev_a_sequences)
+np.random.shuffle(dev_an_sequences)
 #%%
-QA_model.compile(optimizer='adam',loss=cal_loss,metrics=[cal_acc])
-QA_model.fit([q_sequences,a_sequences,an_sequences],a_sequences,batch_size=32,verbose=1,epochs=10)
+from tensorflow.keras.layers import Embedding,LSTM,Bidirectional,MaxPool1D
+from tensorflow.keras.layers import Lambda,Input
+from tensorflow.keras.models import Model
+from tensorflow.keras import backend as K
+
+embedding_dim=200
+max_len=100
+hidden_size=50
+margin=0.2
+
+def get_cosine_similarity():
+    dot=lambda a,b: K.batch_dot(a, b,axes=1)
+    return lambda x: dot(x[0],x[1])/K.maximum(K.sqrt(dot(x[0],x[0])*dot(x[1],x[1])),K.epsilon())
+
+question=Input(shape=(max_len,),dtype='float64',name='question_base')
+answer=Input(shape=(max_len),dtype='float64',name='answer')
+answer_good=Input(shape=(max_len),dtype='float64',name='answer_good_base')
+answer_bad=Input(shape=(max_len,),dtype='float64',name='answer_bad_base')
+
+qa_embedding=Embedding(vocab_size,embedding_dim,weights=[Embedding_matrix],input_length=max_len,trainable=True,mask_zero=True)
+bi_lstm=Bidirectional(LSTM(units=hidden_size,dropout=0.2,return_sequences=True))
+
+question_embedding=qa_embedding(question)
+question_lstm=bi_lstm(question_embedding)
+question_pooling=MaxPool1D(max_len)(question_lstm)
+
+answer_embedding=qa_embedding(answer)
+answer_lstm=bi_lstm(answer_embedding)
+answer_pooling=MaxPool1D(max_len)(answer_lstm)
+
+similarity=get_cosine_similarity()
+question_answer_merged=Lambda(similarity,name='lambda_layer')([question_pooling,answer_pooling])
+lstm_model=Model(name='q_bilstm',inputs=[question,answer],outputs=question_answer_merged)
+good_similarity=lstm_model([question,answer_good])
+bad_similarity=lstm_model([question,answer_bad])
+
+# compute the loss
+loss=Lambda(lambda x: K.maximum(0.0,margin-x[0]+x[1]))([good_similarity,bad_similarity])
+#return training and prediction model
+
+training_model=Model(inputs=[question,answer_good,answer_bad],outputs=loss,name='training_model')
+training_model.compile(loss=lambda y_true,y_pred: y_pred,optimizer="rmsprop")
+prediction_model=Model(inputs=[question,answer_good],outputs=good_similarity,name='prediction_model')
+prediction_model.compile(loss=lambda y_true,y_pred: y_pred,optimizer='rmsprop')
 #%%
-QA_model.summary()
-#%%
-A_model=Mo#%%
+Y = np.zeros(shape=(q_sequences.shape[0],))
+training_model.fit([q_sequences, a_sequences, an_sequences],Y,epochs=1,batch_size=64,validation_data=[dev_q_sequences,dev_a_sequences,dev_an_sequences],verbose=1)
+
+
+
