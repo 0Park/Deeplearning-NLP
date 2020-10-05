@@ -42,18 +42,8 @@ for context in data_df.context.unique():
 context_df=pd.DataFrame(contexts)
 #%%
 print(context_df.isnull().values.any())
-#%%
-import re
 
-stopwords=['의','가','이','은','들','는','좀','잘','걍','과','도','를','으로','자','에','와','한','하다']
-# clean special character
 
-def cleanText(readData):
- 
- 
-    text = re.sub('[-=+,#/\?:^$.@*\"※~&%ㆍ!』\\‘|\(\)\[\]\<\>`\'…》]', '', readData)
- 
-    return text
 #%%
 # extract sentences from paragraph
 from nltk.tokenize import sent_tokenize
@@ -64,32 +54,6 @@ for context in contexts:
         sentences.append(sentence)
 
 
-
-'''
-#%%
-from konlpy.tag import Okt
-okt=Okt()
-tokenized_data=[]
-
-for sentence in sentences:
-    sentence=cleanText(sentence)
-    temp_X=okt.morphs(sentence,stem=True)
-    temp_X=[word for word in temp_X if not word in stopwords]
-    tokenized_data.append(temp_X)
-#%%
-import matplotlib.pyplot as plt
-from gensim.models import Word2Vec
-print('최대 길이:',max(len(l) for l in tokenized_data))
-print('리뷰의 평균 길이 :',sum(map(len, tokenized_data))/len(tokenized_data))
-
-plt.hist([len(s) for s in tokenized_data],bins=50)
-plt.xlabel('length of sentence')
-plt.ylabel('number of samples')
-
-model=Word2Vec(sentences=tokenized_data,size=150,window=5,min_count=10,workers=-1)
-print(model.wv.vectors.shape)
-print(model.wv.most_similar('베토벤'))
-'''
 #%%
 from gensim.models import word2vec
 from konlpy.tag import Okt
@@ -121,3 +85,43 @@ wModel =word2vec.Word2Vec(wData, size=200, window=10, hs=1, min_count=2, sg=1)
 print(wModel.wv.most_similar('베토벤'))
 #%%
 wModel.save('KorQuAD.model')
+
+
+
+'''
+#%%
+import re
+
+stopwords=['의','가','이','은','들','는','좀','잘','걍','과','도','를','으로','자','에','와','한','하다']
+# clean special character
+
+def cleanText(readData):
+ 
+ 
+    text = re.sub('[-=+,#/\?:^$.@*\"※~&%ㆍ!』\\‘|\(\)\[\]\<\>`\'…》]', '', readData)
+ 
+    return text
+#%%
+from konlpy.tag import Okt
+okt=Okt()
+tokenized_data=[]
+
+for sentence in sentences:
+    sentence=cleanText(sentence)
+    temp_X=okt.morphs(sentence,stem=True)
+    temp_X=[word for word in temp_X if not word in stopwords]
+    tokenized_data.append(temp_X)
+#%%
+import matplotlib.pyplot as plt
+from gensim.models import Word2Vec
+print('최대 길이:',max(len(l) for l in tokenized_data))
+print('리뷰의 평균 길이 :',sum(map(len, tokenized_data))/len(tokenized_data))
+
+plt.hist([len(s) for s in tokenized_data],bins=50)
+plt.xlabel('length of sentence')
+plt.ylabel('number of samples')
+
+model=Word2Vec(sentences=tokenized_data,size=150,window=5,min_count=10,workers=-1)
+print(model.wv.vectors.shape)
+print(model.wv.most_similar('베토벤'))
+'''
