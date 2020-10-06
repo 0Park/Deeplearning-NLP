@@ -3,7 +3,7 @@
 import json
 with open('C:/Users/Young Hun Park/Downloads/KorQuAD_v1.0_train.json') as train_file:
     train_data=json.load(train_file)
-with open('C:/Users/Young Hun Park/Downloads/KorQuAD_v1.0_train.json') as dev_file:
+with open('C:/Users/Young Hun Park/Downloads/KorQuAD_v1.0_dev.json') as dev_file:
     dev_data=json.load(dev_file)
 #%%
 train_data=train_data['data']
